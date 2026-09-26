@@ -8,6 +8,9 @@ memory, which turns that silent failure into a build failure.
 
 from __future__ import annotations
 
+import re
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -70,6 +73,73 @@ def missing_dependencies() -> list[str]:
     return missing
 
 
+#: The banner OpenSSL compiles into its own libraries, e.g. "OpenSSL 3.0.13".
+#: Matched specifically, because the libraries also contain unrelated strings
+#: that merely start with "OpenSSL".
+_OPENSSL_VERSION = re.compile(rb"OpenSSL\s+(\d+\.\d+\.\d+[a-z]?)")
+
+
+def _openssl_version(path: Path) -> str:
+    """Report the OpenSSL version(s) a library says it is."""
+    try:
+        blob = path.read_bytes()
+    except OSError as error:
+        return f"unreadable ({error})"
+    found = sorted({match.decode("ascii") for match in _OPENSSL_VERSION.findall(blob)})
+    if not found:
+        return "no OpenSSL version string"
+    return "OpenSSL " + ", ".join(found)
+
+
+def diagnostics() -> list[str]:
+    """Describe the TLS libraries inside a frozen bundle.
+
+    `cryptography`'s compiled extension links against a specific OpenSSL. When a
+    different one ends up beside it in the bundle, the extension fails to load
+    with a missing symbol and takes the whole PDF backend down with it, so this
+    reports which libraries are actually there and where the extension looks.
+    """
+    bundle = getattr(sys, "_MEIPASS", None)
+    if bundle is None:
+        return ["not running from a frozen bundle, so there is nothing to inspect"]
+
+    root = Path(bundle)
+    lines = [f"bundle: {root}"]
+
+    libraries = sorted(
+        {path for pattern in ("**/libssl*", "**/libcrypto*") for path in root.glob(pattern)}
+    )
+    if libraries:
+        for path in libraries:
+            size = path.stat().st_size if path.exists() else 0
+            lines.append(
+                f"  {path.relative_to(root)}  {size:,} bytes  [{_openssl_version(path)}]"
+            )
+    else:
+        lines.append("  no libssl/libcrypto in the bundle")
+
+    extensions = sorted(root.glob("cryptography/hazmat/bindings/_rust*"))
+    for extension in extensions:
+        lines.append(f"  {extension.relative_to(root)} links against:")
+        try:
+            output = subprocess.run(
+                ["otool", "-L", str(extension)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            ).stdout
+        except (OSError, subprocess.SubprocessError) as error:
+            lines.append(f"    (otool unavailable: {error})")
+            continue
+        for line in output.splitlines()[1:]:
+            if "ssl" in line or "crypto" in line:
+                lines.append(f"    {line.strip()}")
+    if not extensions:
+        lines.append("  no cryptography extension in the bundle")
+    return lines
+
+
 def run() -> str:
     """Convert a generated PDF and return its text, or raise SelfTestError."""
     from pdf2md.convert import ConversionError, Converter
@@ -79,7 +149,10 @@ def run() -> str:
     if missing:
         raise SelfTestError(
             "this build cannot read PDFs — markitdown's PDF backend is incomplete.\n"
-            "Missing or broken: " + "; ".join(missing)
+            "Missing or broken: "
+            + "; ".join(missing)
+            + "\n\nWhat the bundle actually contains:\n"
+            + "\n".join(diagnostics())
         )
 
     with tempfile.TemporaryDirectory(prefix="pdf2md-selftest-") as directory:
