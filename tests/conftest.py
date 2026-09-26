@@ -8,41 +8,9 @@ from pathlib import Path
 
 import pytest
 
+from pdf2md.selftest import make_pdf
 
-def make_pdf(lines: list[str]) -> bytes:
-    """Build a tiny but valid one-page PDF containing ``lines`` of text.
-
-    The built-in Helvetica font is single-byte, so text outside Latin-1 is
-    replaced rather than embedded — keep test text ASCII.
-    """
-    content = "BT /F1 18 Tf 72 720 Td 20 TL\n" + "".join(f"({line}) Tj T*\n" for line in lines)
-    content += "ET\n"
-    stream = content.encode("latin-1", "replace")
-    objects = [
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        (
-            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
-            b"/Resources << /Font << /F1 5 0 R >> >> >>"
-        ),
-        b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"endstream",
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    ]
-    out = bytearray(b"%PDF-1.4\n")
-    offsets = []
-    for number, body in enumerate(objects, 1):
-        offsets.append(len(out))
-        out += b"%d 0 obj\n" % number + body + b"\nendobj\n"
-    start_xref = len(out)
-    out += b"xref\n0 %d\n" % (len(objects) + 1)
-    out += b"0000000000 65535 f \n"
-    for offset in offsets:
-        out += b"%010d 00000 n \n" % offset
-    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
-        len(objects) + 1,
-        start_xref,
-    )
-    return bytes(out)
+__all__ = ["make_pdf"]
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):

@@ -352,6 +352,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--version", action="version", version=f"pdf2md-service {__version__}")
     parser.add_argument(
+        "--selftest",
+        action="store_true",
+        help="convert a generated PDF to check this build can read PDFs at all, then exit",
+    )
+    parser.add_argument(
         "--log-level",
         default=os.environ.get("PDF2MD_LOG_LEVEL", "INFO").upper(),
         choices=("DEBUG", "INFO", "WARNING", "ERROR"),
@@ -366,6 +371,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("pdfminer").setLevel(logging.ERROR)
+
+    if args.selftest:
+        from pdf2md.selftest import SelfTestError, run
+
+        try:
+            run()
+        except SelfTestError as error:
+            print(f"pdf2md selftest FAILED: {error}", file=sys.stderr)
+            return 1
+        print(f"pdf2md selftest passed: {__version__} converts PDFs")
+        return 0
 
     service = Service()
     logging.getLogger("pdf2md").addHandler(EventLogHandler(service))

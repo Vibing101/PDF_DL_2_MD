@@ -277,3 +277,36 @@ def test_unknown_method_and_malformed_json_are_reported(client):
 def test_shutdown_ends_the_process(client):
     assert client.call(2, "shutdown")["result"] == {"bye": True}
     assert client.process.wait(timeout=10) == 0
+
+
+def test_selftest_reports_a_working_pdf_backend():
+    """The check the build runs to prove markitdown can actually read PDFs."""
+    from pdf2md.selftest import run
+
+    assert "pdf2md selftest ok" in run()
+
+
+def test_selftest_names_a_missing_pdf_dependency(monkeypatch):
+    import importlib
+
+    from pdf2md import selftest
+
+    real = importlib.import_module
+
+    def fail_on_pdfplumber(name, *args, **kwargs):
+        if name == "pdfplumber":
+            raise ImportError("No module named 'pdfplumber'")
+        return real(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", fail_on_pdfplumber)
+    assert any("pdfplumber" in entry for entry in selftest.missing_dependencies())
+
+    with pytest.raises(selftest.SelfTestError, match="pdfplumber"):
+        selftest.run()
+
+
+def test_selftest_cli_exits_zero(capsys):
+    from pdf2md.service import main
+
+    assert main(["--selftest"]) == 0
+    assert "converts PDFs" in capsys.readouterr().out
