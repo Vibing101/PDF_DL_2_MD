@@ -1,0 +1,94 @@
+name: build macOS app
+
+# Produces a downloadable pdf2md.app (inside a .dmg) for both Mac
+# architectures. Run it by hand from the Actions tab, or push a v* tag to get a
+# release with the disk images attached.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            label: Apple silicon (arm64)
+            triple: aarch64-apple-darwin
+          - runner: macos-13
+            label: Intel (x86_64)
+            triple: x86_64-apple-darwin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.triple }}
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+          key: ${{ matrix.triple }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.toml') }}
+          restore-keys: ${{ matrix.triple }}-cargo-
+
+      - name: Bundle the Python service
+        run: bash desktop/scripts/build-sidecar.sh
+        env:
+          TARGET_TRIPLE: ${{ matrix.triple }}
+
+      - name: Install front-end dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build the app
+        working-directory: desktop
+        run: npx tauri build --target ${{ matrix.triple }} --bundles app,dmg
+
+      - name: Name the disk image after its architecture
+        id: artifact
+        working-directory: desktop/src-tauri/target/${{ matrix.triple }}/release/bundle
+        run: |
+          set -euo pipefail
+          original="$(ls dmg/*.dmg | head -1)"
+          version="$(node -p "require('../../../../tauri.conf.json').version")"
+          renamed="dmg/pdf2md_${version}_${{ matrix.triple }}.dmg"
+          mv "$original" "$renamed"
+          echo "dmg=desktop/src-tauri/target/${{ matrix.triple }}/release/bundle/$renamed" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the app
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf2md-${{ matrix.triple }}
+          path: |
+            ${{ steps.artifact.outputs.dmg }}
+            desktop/src-tauri/target/${{ matrix.triple }}/release/bundle/macos/*.app
+          if-no-files-found: error
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${GITHUB_REF_NAME}" "${{ steps.artifact.outputs.dmg }}" --clobber

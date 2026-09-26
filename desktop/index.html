@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pdf2md</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <!-- Step 1: pick a document -->
+      <section id="welcome" class="welcome">
+        <div class="welcome-card" id="drop-zone">
+          <h1>pdf2md</h1>
+          <p class="lede">
+            Load a document that links to online PDFs. Choose the ones you want, and
+            they are downloaded and converted to Markdown, filed into folders that
+            mirror the document's own categories.
+          </p>
+          <button id="load-button" class="primary large" type="button">Load document…</button>
+          <p class="hint">
+            or drop one here — Markdown, text, HTML, Word, Excel or PDF
+          </p>
+          <p id="welcome-status" class="status" role="status"></p>
+        </div>
+      </section>
+
+      <!-- Step 2: choose links -->
+      <section id="workspace" class="workspace" hidden>
+        <header class="bar">
+          <div class="bar-main">
+            <strong id="document-name">—</strong>
+            <span id="document-summary" class="muted"></span>
+          </div>
+          <button id="change-document" class="ghost" type="button">Load another…</button>
+        </header>
+
+        <div class="toolbar">
+          <label class="search">
+            <input
+              id="search"
+              type="search"
+              placeholder="Filter by title, category or URL"
+              autocomplete="off"
+            />
+          </label>
+          <div class="toolbar-actions">
+            <span id="selection-count" class="muted"></span>
+            <button id="select-all" class="ghost" type="button">Select all</button>
+            <button id="select-none" class="ghost" type="button">Select none</button>
+            <button id="toggle-groups" class="ghost" type="button">Expand all</button>
+          </div>
+        </div>
+
+        <div id="tree" class="tree" role="tree" aria-label="PDF links by category"></div>
+
+        <footer class="controls">
+          <div class="control-row">
+            <label class="field grow">
+              <span>Save Markdown to</span>
+              <span class="path-picker">
+                <input id="output-dir" type="text" spellcheck="false" />
+                <button id="pick-output" class="ghost" type="button">Choose…</button>
+              </span>
+            </label>
+            <label class="field">
+              <span>Parallel downloads</span>
+              <input id="workers" type="number" min="1" max="16" value="4" />
+            </label>
+            <label class="field">
+              <span>Pause between (s)</span>
+              <input id="delay" type="number" min="0" max="60" step="0.25" value="0" />
+            </label>
+          </div>
+          <div class="control-row checkboxes">
+            <label class="check">
+              <input id="keep-pdfs" type="checkbox" />
+              <span>Keep the downloaded PDFs too</span>
+            </label>
+            <label class="check">
+              <input id="overwrite" type="checkbox" />
+              <span>Redo files that already exist</span>
+            </label>
+            <div class="spacer"></div>
+            <button id="convert" class="primary" type="button" disabled>
+              Download &amp; convert
+            </button>
+            <button id="cancel" class="danger" type="button" hidden>Stop</button>
+          </div>
+          <div id="progress" class="progress" hidden>
+            <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+            <p id="progress-text" class="status" role="status"></p>
+          </div>
+        </footer>
+      </section>
+
+      <!-- Step 3: what happened -->
+      <section id="summary" class="summary" hidden>
+        <h2 id="summary-title">Done</h2>
+        <ul id="summary-counts" class="counts"></ul>
+        <p id="summary-path" class="muted"></p>
+        <div id="summary-failures" class="failures" hidden>
+          <h3>Not converted</h3>
+          <ul id="failure-list"></ul>
+        </div>
+        <div class="summary-actions">
+          <button id="reveal" class="primary" type="button">Show in Finder</button>
+          <button id="back-to-list" class="ghost" type="button">Back to the list</button>
+        </div>
+      </section>
+    </main>
+
+    <div id="banner" class="banner" hidden role="alert">
+      <span id="banner-text"></span>
+      <button id="banner-close" class="banner-close" type="button" aria-label="Dismiss">×</button>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import threading
 from collections import OrderedDict
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -34,6 +35,7 @@ STATUS_PLANNED = "planned"
 STATUS_DOWNLOAD_FAILED = "download_failed"
 STATUS_CONVERT_FAILED = "convert_failed"
 STATUS_WRITE_FAILED = "write_failed"
+STATUS_CANCELLED = "cancelled"
 FAILURE_STATUSES = frozenset({STATUS_DOWNLOAD_FAILED, STATUS_CONVERT_FAILED, STATUS_WRITE_FAILED})
 
 
@@ -43,6 +45,30 @@ class Target:
 
     link: PdfLink
     path: Path
+
+
+@dataclass
+class Progress:
+    """One step of a run, handed to a caller's progress callback."""
+
+    done: int
+    total: int
+    status: str
+    url: str
+    title: str
+    path: str
+    error: str | None = None
+
+    def as_dict(self) -> dict:
+        return {
+            "done": self.done,
+            "total": self.total,
+            "status": self.status,
+            "url": self.url,
+            "title": self.title,
+            "path": self.path,
+            "error": self.error,
+        }
 
 
 @dataclass
@@ -163,10 +189,14 @@ class Pipeline:
         *,
         downloader: Downloader | None = None,
         converter: Converter | None = None,
+        on_progress: Callable[[Progress], None] | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> None:
         self.options = options
         self.downloader = downloader or Downloader(delay=options.delay)
         self.converter = converter or Converter()
+        self.on_progress = on_progress
+        self.cancel_event = cancel_event or threading.Event()
         self._counter_lock = threading.Lock()
         self._done = 0
 
@@ -275,19 +305,30 @@ class Pipeline:
     # ------------------------------------------------------------------- run
 
     def run(self, documents: list[Path]) -> RunReport:
-        """Process every document and return a report of what happened."""
+        """Extract links from every document, then process them."""
+        found, selected = self.collect(documents)
+        return self._execute(selected, documents=documents, links_found=len(found))
+
+    def run_links(
+        self, links: list[PdfLink], *, documents: list[Path] | None = None
+    ) -> RunReport:
+        """Process an explicit list of links — what the desktop app selected."""
+        return self._execute(links, documents=documents or [], links_found=len(links))
+
+    def _execute(
+        self, selected: list[PdfLink], *, documents: list[Path], links_found: int
+    ) -> RunReport:
         report = RunReport(
             options=self.options,
             documents=[str(document) for document in documents],
             started_at=_now(),
         )
-        found, selected = self.collect(documents)
-        report.links_found = len(found)
+        report.links_found = links_found
         report.links_selected = len(selected)
         groups = self.plan(selected)
         logger.info(
             "%d PDF link(s) found, %d selected, %d unique file(s) to fetch",
-            len(found),
+            links_found,
             len(selected),
             len(groups),
         )
@@ -340,6 +381,14 @@ class Pipeline:
         self, url: str, targets: list[Target], temporary_dir: Path, total: int
     ) -> ItemResult:
         first = targets[0].link
+        if self.cancel_event.is_set():
+            return ItemResult(
+                url=url,
+                status=STATUS_CANCELLED,
+                title=first.title,
+                categories=first.categories,
+                sources=_sources(targets),
+            )
         result = ItemResult(
             url=url,
             status=STATUS_CONVERTED,
@@ -425,6 +474,18 @@ class Pipeline:
             logger.error("%s — %s (%s)", label, detail or "failed", link.url)
         else:
             logger.info("%s", label)
+        if self.on_progress is not None:
+            self.on_progress(
+                Progress(
+                    done=position,
+                    total=total,
+                    status=status,
+                    url=link.url,
+                    title=link.title,
+                    path=str(path),
+                    error=detail,
+                )
+            )
 
 
 def write_output(target: Target, markdown: str, download: Download | None) -> None:

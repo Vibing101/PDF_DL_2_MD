@@ -1,0 +1,43 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the pdf2md window is allowed to do: pick a document and an output folder, run the bundled converter, and reveal the result in Finder.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "dialog:allow-open",
+    "opener:allow-reveal-item-in-dir",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "binaries/pdf2md-service",
+          "sidecar": true,
+          "args": false
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-stdin-write",
+      "allow": [
+        {
+          "name": "binaries/pdf2md-service",
+          "sidecar": true,
+          "args": false
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-kill",
+      "allow": [
+        {
+          "name": "binaries/pdf2md-service",
+          "sidecar": true,
+          "args": false
+        }
+      ]
+    }
+  ]
+}

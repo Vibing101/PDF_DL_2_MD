@@ -1,0 +1,6 @@
+binaries/
+.sidecar-build/
+target/
+node_modules/
+dist/
+src-tauri/gen/schemas/
