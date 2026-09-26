@@ -1,6 +1,6 @@
 {
   "name": "pdf2md-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Desktop app for pdf2md: load a document of PDF links, pick the ones you want, convert them to Markdown",
   "type": "module",

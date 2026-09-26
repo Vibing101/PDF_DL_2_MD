@@ -73,7 +73,7 @@ source_line: 20
 pdf_bytes: 284913
 pdf_sha256: "bf598fef…"
 converted_at: "2026-09-26T13:02:49Z"
-converter: "markitdown (via pdf2md 1.0.0)"
+converter: "markitdown (via pdf2md 1.0.1)"
 ---
 
 …the converted text…
