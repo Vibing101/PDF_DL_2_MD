@@ -5,6 +5,13 @@ name: build macOS app
 # release with the disk images attached.
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: >-
+          Attach the disk images to this existing release (e.g. v1.0.0).
+          Leave empty to just build them as artifacts.
+        required: false
+        default: ""
   push:
     tags: ["v*"]
 
@@ -19,10 +26,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-14
+          # Runner images retire: macos-13 was withdrawn and its jobs queue for
+          # ever rather than failing, and macos-14 is deprecated. Check the
+          # labels against github.com/actions/runner-images before changing.
+          - runner: macos-15
             label: Apple silicon (arm64)
             triple: aarch64-apple-darwin
-          - runner: macos-13
+          - runner: macos-15-intel
             label: Intel (x86_64)
             triple: x86_64-apple-darwin
 
@@ -88,16 +98,18 @@ jobs:
           if-no-files-found: error
 
       - name: Attach to the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A plain name, because the runner reserves the GITHUB_* ones.
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           set -euo pipefail
           # Both architectures build in parallel and either may finish first, so
           # each job creates the release if it is not there yet and ignores the
           # failure if the other job (or a person) already made it.
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "${GITHUB_REF_NAME}" \
+          gh release create "${RELEASE_TAG}" \
+            --title "${RELEASE_TAG}" \
             --verify-tag \
             --generate-notes || true
-          gh release upload "${GITHUB_REF_NAME}" "${{ steps.artifact.outputs.dmg }}" --clobber
+          gh release upload "${RELEASE_TAG}" "${{ steps.artifact.outputs.dmg }}" --clobber
