@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pdf2md"
-version = "1.0.0"
+version = "1.0.1"
 description = "Find PDF links in a document, download them, and convert them to Markdown with markitdown"
 readme = "README.md"
 requires-python = ">=3.9"
