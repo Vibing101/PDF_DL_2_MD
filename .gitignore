@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# pdf2md run output
+output/
+/pdfs/
+_manifest.json
