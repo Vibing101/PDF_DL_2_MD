@@ -16,6 +16,19 @@ The categories come from the document's own headings, so a link listed under
 Markdown tables get their title from the row and the column header, which is what
 makes a table of anonymous `[PDF]` links usable.
 
+## Two ways to use it
+
+**The macOS app** — download it, load a document, tick what you want. Nothing to
+install, no Python, no terminal.
+
+> **[Download the latest release](https://github.com/Vibing101/PDF_DL_2_MD/releases/latest)**
+> · **[User guide](docs/USER_GUIDE.md)**
+
+![The app's list of links, grouped by category](docs/images/link-list.png)
+
+**The command line** — the same converter, scriptable, and it runs anywhere
+Python does. That is what the rest of this page covers.
+
 ## Install
 
 ```bash
@@ -148,19 +161,31 @@ Exit code is `0` when everything converted, `1` when at least one PDF failed, an
 
 ## Desktop app (macOS)
 
-`desktop/` wraps all of this in a small Tauri app: load a document, tick the
-links you want from a list grouped by category, and watch them convert.
+`desktop/` wraps all of this in a Tauri app: the same Python converter, bundled
+as a self-contained binary the app talks to, so a user needs nothing installed.
+
+- **Using it** — [docs/USER_GUIDE.md](docs/USER_GUIDE.md), written for people who
+  will never open a terminal, including the Gatekeeper step the first launch
+  needs because the app is unsigned.
+- **Building and hacking on it** — [desktop/README.md](desktop/README.md): how
+  the web view, the Rust shell and the Python sidecar fit together.
+
+Disk images for both Mac architectures are attached to each
+[release](https://github.com/Vibing101/PDF_DL_2_MD/releases), built by the
+*build macOS app* workflow. To build one yourself, on a Mac:
 
 ```bash
 cd desktop
-bash scripts/build-sidecar.sh     # bundle the Python service
-npm install && npx tauri build    # on a Mac: produces pdf2md.app and a .dmg
+bash scripts/build-sidecar.sh     # bundle the Python service (~75 MB)
+npm install && npx tauri build    # produces pdf2md.app and a .dmg
 ```
 
-Prebuilt disk images for both Mac architectures come from the *build macOS app*
-workflow in the Actions tab. See [desktop/README.md](desktop/README.md) for how
-it fits together, and for the Gatekeeper step needed the first time you open an
-unsigned app.
+The sidecar build ends by converting a PDF, so a bundle that cannot read PDFs
+fails the build instead of shipping. You can check any bundle yourself:
+
+```bash
+desktop/src-tauri/binaries/pdf2md-service-<target-triple> --selftest
+```
 
 ## Development
 

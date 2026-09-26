@@ -25,6 +25,9 @@ signing and notarising is a matter of setting the usual `APPLE_*` secrets — se
 
 ## Using it
 
+For an end-user walkthrough — installing, the Gatekeeper step, what each status
+means — see [docs/USER_GUIDE.md](../docs/USER_GUIDE.md). In short:
+
 1. **Load a document** — the button, or drop a file on the window. Markdown,
    text and HTML are read directly; Word, Excel and PDF are converted first.
 2. **Pick what you want** — links are grouped by the document's own categories.
