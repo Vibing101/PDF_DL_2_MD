@@ -41,10 +41,12 @@ python3 -m PyInstaller \
   --collect-all pdfplumber \
   --collect-all pypdfium2 \
   --collect-all pypdfium2_raw \
-  `# ...and these carry the binaries those two load at import time.` \
-  --collect-all cryptography \
-  --collect-all cffi \
+  `# ...and this carries the imaging code pdfplumber loads at import time.` \
   --collect-all PIL \
+  `# cryptography (pdfminer needs it for encrypted PDFs) is deliberately NOT` \
+  `# collected wholesale: PyInstaller ships a hook for it, and forcing a blanket` \
+  `# collect bundled an OpenSSL that did not match its compiled extension, so` \
+  `# the Intel build failed to import it with "Symbol not found: _SSL_get0_group_name".` \
   "$desktop/scripts/service_entry.py"
 
 binary="$work/dist/pdf2md-service"
