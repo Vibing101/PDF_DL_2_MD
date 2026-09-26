@@ -104,3 +104,15 @@ npx tauri icon src-tauri/icon-source.png
   captive portal blocks them the same way it would block a browser.
 - **A file converted but is empty** — that PDF is a scan with no text layer. The
   app marks it *no text found*; run it through OCR and convert it again.
+- **Everything fails with "install markitdown[pdf]"** — the bundled service was
+  built without markitdown's PDF backend. `scripts/build-sidecar.sh` now ends by
+  converting a generated PDF, so this fails the build rather than shipping, and
+  any bundle can be checked directly:
+
+  ```bash
+  src-tauri/binaries/pdf2md-service-<target-triple> --selftest
+  ```
+
+  It prints which of `pdfminer`, `pdfminer.high_level` or `pdfplumber` is
+  missing. markitdown needs all three and reports the same error for any of
+  them.

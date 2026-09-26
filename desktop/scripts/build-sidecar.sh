@@ -33,9 +33,18 @@ python3 -m PyInstaller \
   --collect-all markitdown \
   --collect-all magika \
   --collect-all onnxruntime \
-  --collect-all pdfminer \
   --collect-all markdownify \
   --collect-submodules pdf2md \
+  `# markitdown imports all three before it will read a PDF, and gives the` \
+  `# same "install markitdown[pdf]" error if any of them fails to import.` \
+  --collect-all pdfminer \
+  --collect-all pdfplumber \
+  --collect-all pypdfium2 \
+  --collect-all pypdfium2_raw \
+  `# ...and these carry the binaries those two load at import time.` \
+  --collect-all cryptography \
+  --collect-all cffi \
+  --collect-all PIL \
   "$desktop/scripts/service_entry.py"
 
 binary="$work/dist/pdf2md-service"
@@ -44,7 +53,9 @@ target="$out/pdf2md-service-$triple"
 mv -f "$binary" "$target"
 chmod +x "$target"
 
-echo "==> checking the bundle actually runs"
-"$target" --version
+echo "==> checking the bundle actually converts a PDF"
+# --version only proves it starts. This converts a real PDF, so a bundle that
+# is missing markitdown's PDF backend fails the build instead of shipping.
+"$target" --selftest
 
 echo "==> $target ($(du -h "$target" | cut -f1))"

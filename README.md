@@ -193,6 +193,11 @@ which is what the extractor is tuned against.
 ## Troubleshooting
 
 - **`markitdown is required…`** — `pip install 'markitdown[pdf]'`.
+- **Every PDF fails with "include the optional dependency [pdf]"** — markitdown
+  is installed but its PDF backend is not. It imports `pdfminer`,
+  `pdfminer.high_level` and `pdfplumber`, and reports this same error if any one
+  of them is missing. `python -m pdf2md.service --selftest` converts a generated
+  PDF and names the culprit.
 - **Every download fails with a connection error** — check whether the network you
   are on allows the host; a corporate proxy or sandbox may block it.
 - **`HTTP 403`** — some hosts refuse an unknown client; try

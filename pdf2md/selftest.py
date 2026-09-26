@@ -1,0 +1,98 @@
+"""Prove that this build can actually convert a PDF.
+
+markitdown reports a missing PDF backend as a plain ``MissingDependencyException``
+at conversion time, so a bundle can be built, start up and report its version
+while being unable to convert anything. This module converts a PDF built in
+memory, which turns that silent failure into a build failure.
+"""
+
+from __future__ import annotations
+
+import tempfile
+from pathlib import Path
+
+#: The PDF-reading packages markitdown imports before it will touch a PDF.
+#: markitdown catches ImportError from any of them and reports the whole [pdf]
+#: extra as missing, so each one is checked separately to name the real culprit.
+PDF_DEPENDENCIES = ("pdfminer", "pdfminer.high_level", "pdfplumber")
+
+
+class SelfTestError(RuntimeError):
+    """Raised when the build cannot convert a PDF."""
+
+
+def make_pdf(lines: list[str]) -> bytes:
+    """Build a tiny but valid one-page PDF containing ``lines`` of text.
+
+    The built-in Helvetica font is single-byte, so text outside Latin-1 is
+    replaced rather than embedded — keep the text ASCII.
+    """
+    content = "BT /F1 18 Tf 72 720 Td 20 TL\n" + "".join(f"({line}) Tj T*\n" for line in lines)
+    content += "ET\n"
+    stream = content.encode("latin-1", "replace")
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        (
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+            b"/Resources << /Font << /F1 5 0 R >> >> >>"
+        ),
+        b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"endstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for number, body in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % number + body + b"\nendobj\n"
+    start_xref = len(out)
+    out += b"xref\n0 %d\n" % (len(objects) + 1)
+    out += b"0000000000 65535 f \n"
+    for offset in offsets:
+        out += b"%010d 00000 n \n" % offset
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
+        len(objects) + 1,
+        start_xref,
+    )
+    return bytes(out)
+
+
+def missing_dependencies() -> list[str]:
+    """Return the PDF-reading modules that cannot be imported here."""
+    import importlib
+
+    missing = []
+    for name in PDF_DEPENDENCIES:
+        try:
+            importlib.import_module(name)
+        except Exception as error:  # ImportError, but a broken binary can raise anything
+            missing.append(f"{name} ({error.__class__.__name__}: {error})")
+    return missing
+
+
+def run() -> str:
+    """Convert a generated PDF and return its text, or raise SelfTestError."""
+    from pdf2md.convert import ConversionError, Converter
+
+    marker = "pdf2md selftest ok"
+    missing = missing_dependencies()
+    if missing:
+        raise SelfTestError(
+            "this build cannot read PDFs — markitdown's PDF backend is incomplete.\n"
+            "Missing or broken: " + "; ".join(missing)
+        )
+
+    with tempfile.TemporaryDirectory(prefix="pdf2md-selftest-") as directory:
+        path = Path(directory) / "selftest.pdf"
+        path.write_bytes(make_pdf([marker, "second line"]))
+        try:
+            markdown = Converter().convert(path)
+        except ConversionError as error:
+            raise SelfTestError(f"converting a PDF failed: {error}") from error
+
+    if marker not in markdown:
+        raise SelfTestError(
+            "converting a PDF produced no usable text "
+            f"(expected {marker!r}, got {markdown[:200]!r})"
+        )
+    return markdown
