@@ -26,28 +26,9 @@ python3 -m pip install --quiet -r "$repo/requirements.txt"
 echo "==> bundling pdf2md-service for $triple"
 cd "$repo"
 python3 -m PyInstaller \
-  --noconfirm --clean --onefile \
-  --name pdf2md-service \
-  --distpath "$work/dist" --workpath "$work/build" --specpath "$work" \
-  --paths "$repo" \
-  --collect-all markitdown \
-  --collect-all magika \
-  --collect-all onnxruntime \
-  --collect-all markdownify \
-  --collect-submodules pdf2md \
-  `# markitdown imports all three before it will read a PDF, and gives the` \
-  `# same "install markitdown[pdf]" error if any of them fails to import.` \
-  --collect-all pdfminer \
-  --collect-all pdfplumber \
-  --collect-all pypdfium2 \
-  --collect-all pypdfium2_raw \
-  `# ...and this carries the imaging code pdfplumber loads at import time.` \
-  --collect-all PIL \
-  `# cryptography (pdfminer needs it for encrypted PDFs) is deliberately NOT` \
-  `# collected wholesale: PyInstaller ships a hook for it, and forcing a blanket` \
-  `# collect bundled an OpenSSL that did not match its compiled extension, so` \
-  `# the Intel build failed to import it with "Symbol not found: _SSL_get0_group_name".` \
-  "$desktop/scripts/service_entry.py"
+  --noconfirm --clean \
+  --distpath "$work/dist" --workpath "$work/build" \
+  "$here/pdf2md-service.spec"
 
 binary="$work/dist/pdf2md-service"
 [ -f "$binary.exe" ] && binary="$binary.exe"
