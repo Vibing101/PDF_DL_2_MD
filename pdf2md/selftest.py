@@ -8,6 +8,7 @@ memory, which turns that silent failure into a build failure.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import tempfile
@@ -72,18 +73,22 @@ def missing_dependencies() -> list[str]:
     return missing
 
 
+#: The banner OpenSSL compiles into its own libraries, e.g. "OpenSSL 3.0.13".
+#: Matched specifically, because the libraries also contain unrelated strings
+#: that merely start with "OpenSSL".
+_OPENSSL_VERSION = re.compile(rb"OpenSSL\s+(\d+\.\d+\.\d+[a-z]?)")
+
+
 def _openssl_version(path: Path) -> str:
-    """Read the version string OpenSSL compiles into its own library."""
+    """Report the OpenSSL version(s) a library says it is."""
     try:
         blob = path.read_bytes()
     except OSError as error:
         return f"unreadable ({error})"
-    marker = b"OpenSSL "
-    start = blob.find(marker)
-    if start < 0:
-        return "no version string found"
-    end = blob.find(b"\x00", start)
-    return blob[start : end if 0 < end < start + 120 else start + 60].decode("ascii", "replace")
+    found = sorted({match.decode("ascii") for match in _OPENSSL_VERSION.findall(blob)})
+    if not found:
+        return "no OpenSSL version string"
+    return "OpenSSL " + ", ".join(found)
 
 
 def diagnostics() -> list[str]:
