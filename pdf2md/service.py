@@ -352,6 +352,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--version", action="version", version=f"pdf2md-service {__version__}")
     parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="describe the TLS libraries inside this bundle, then exit",
+    )
+    parser.add_argument(
         "--selftest",
         action="store_true",
         help="convert a generated PDF to check this build can read PDFs at all, then exit",
@@ -371,6 +376,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("pdfminer").setLevel(logging.ERROR)
+
+    if args.diagnose:
+        from pdf2md.selftest import diagnostics
+
+        print("\n".join(diagnostics()))
+        return 0
 
     if args.selftest:
         from pdf2md.selftest import SelfTestError, run
