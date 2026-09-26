@@ -5,6 +5,7 @@ A spec file rather than command-line flags, because the TLS libraries need
 fixing up after collection — see `Consistent OpenSSL` below.
 """
 
+import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules
@@ -63,37 +64,14 @@ a = Analysis(  # noqa: F821
 # pair consistent. Python's ssl module works against the newer library; it is
 # the other way round that breaks.
 
-TLS_PREFIXES = ("libssl", "libcrypto")
+sys.path.insert(0, str(HERE))
+from bundle_openssl import align_tls_libraries  # noqa: E402
 
-
-def _is_tls(name: str) -> bool:
-    return name.startswith(TLS_PREFIXES)
-
-
-def _from_cryptography(source: str) -> bool:
-    return any(part.startswith("cryptography") for part in Path(source).parts)
-
-
-preferred = {
-    Path(destination).name: source
-    for destination, source, _kind in a.binaries
-    if _is_tls(Path(destination).name) and _from_cryptography(source)
-}
-
-if preferred:
-    rewritten = []
-    for destination, source, kind in a.binaries:
-        name = Path(destination).name
-        replacement = preferred.get(name)
-        if replacement and replacement != source:
-            print(f"spec: using cryptography's {name}\n      was {source}\n      now {replacement}")
-            source = replacement
-        rewritten.append((destination, source, kind))
-    a.binaries = rewritten
-else:
-    # Nothing to align: this cryptography links OpenSSL statically, so its
-    # extension does not depend on a bundled libssl at all.
-    print("spec: cryptography ships no TLS libraries, leaving binaries as collected")
+a.binaries, substitutions = align_tls_libraries(a.binaries)
+for name, old_source, new_source in substitutions:
+    print(f"spec: using cryptography's {name}\n      was {old_source}\n      now {new_source}")
+if not substitutions:
+    print("spec: no TLS libraries to align (cryptography links OpenSSL statically)")
 
 pyz = PYZ(a.pure)  # noqa: F821
 
