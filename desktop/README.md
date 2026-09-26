@@ -66,7 +66,7 @@ own module, `src/protocol.js`, with tests.
 
 ## Building it yourself
 
-On a Mac with [Rust](https://rustup.rs), Node 20+ and Python 3.11+:
+On a Mac with [Rust](https://rustup.rs), Node 20+ and **Python 3.9–3.13**:
 
 ```bash
 cd desktop
@@ -86,6 +86,18 @@ npm install
 npm run tauri dev
 ```
 
+To build just the Python service — which is where dependency problems show up,
+and needs neither Rust nor Node:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+TARGET_TRIPLE=x86_64-apple-darwin bash scripts/build-sidecar.sh
+```
+
+`TARGET_TRIPLE` saves the script asking `rustc` what architecture you are on;
+use `aarch64-apple-darwin` on Apple silicon. It ends by converting a PDF, so it
+tells you outright whether the bundle works.
+
 `npm test` runs the front-end tests; `python -m pytest` at the repository root
 covers the pipeline and the service, including the whole path from a document to
 converted files.
@@ -99,6 +111,11 @@ npx tauri icon src-tauri/icon-source.png
 
 ## Troubleshooting
 
+- **`ResolutionImpossible` when building the sidecar** — the Python you built
+  with is newer than the dependencies support. markitdown needs magika and so
+  onnxruntime, whose wheels trail new Python releases, and pip reports the
+  conflict without naming the cause. `scripts/build-sidecar.sh` now checks the
+  version first and says which one to use; the test matrix covers up to 3.13.
 - **"the converter did not start"** — the sidecar is missing or was built for
   another architecture. It must exist as
   `src-tauri/binaries/pdf2md-service-<target-triple>`; re-run

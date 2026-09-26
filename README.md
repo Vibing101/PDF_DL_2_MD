@@ -31,6 +31,9 @@ Python does. That is what the rest of this page covers.
 
 ## Install
 
+Python 3.9–3.13. (markitdown's PDF backend depends on onnxruntime, whose wheels
+do not cover 3.14 yet.)
+
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt

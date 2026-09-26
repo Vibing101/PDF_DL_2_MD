@@ -19,6 +19,9 @@ work="${BUILD_DIR:-$desktop/.sidecar-build}"
 out="$desktop/src-tauri/binaries"
 mkdir -p "$out"
 
+echo "==> checking the Python version"
+python3 "$here/check_python.py"
+
 echo "==> installing the Python dependencies"
 python3 -m pip install --quiet --upgrade pyinstaller
 python3 -m pip install --quiet -r "$repo/requirements.txt"
