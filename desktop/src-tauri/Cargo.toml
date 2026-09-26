@@ -1,0 +1,24 @@
+[package]
+name = "pdf2md-desktop"
+version = "0.1.0"
+description = "Load a document of PDF links, choose the ones you want, convert them to Markdown"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+# main.rs calls into this; the name must match the `use` there.
+name = "pdf2md_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-shell = "2"
+
+[features]
+# Enabled by `tauri dev`; keeps the custom protocol behaviour consistent.
+custom-protocol = ["tauri/custom-protocol"]

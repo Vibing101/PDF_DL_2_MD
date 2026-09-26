@@ -146,6 +146,22 @@ Exit code is `0` when everything converted, `1` when at least one PDF failed, an
   found no text, and counted as `converted_empty`. Run them through OCR
   (`ocrmypdf`, say) and convert those files again if you need their contents.
 
+## Desktop app (macOS)
+
+`desktop/` wraps all of this in a small Tauri app: load a document, tick the
+links you want from a list grouped by category, and watch them convert.
+
+```bash
+cd desktop
+bash scripts/build-sidecar.sh     # bundle the Python service
+npm install && npx tauri build    # on a Mac: produces pdf2md.app and a .dmg
+```
+
+Prebuilt disk images for both Mac architectures come from the *build macOS app*
+workflow in the Actions tab. See [desktop/README.md](desktop/README.md) for how
+it fits together, and for the Gatekeeper step needed the first time you open an
+unsigned app.
+
 ## Development
 
 ```bash
@@ -164,7 +180,8 @@ pdf2md/
 ├── convert.py    # temporary file → Markdown, via markitdown
 ├── naming.py     # titles and URLs → safe paths
 ├── pipeline.py   # plan, run in parallel, write the tree, report
-└── cli.py        # argument parsing and the closing summary
+├── cli.py        # argument parsing and the closing summary
+└── service.py    # line-delimited JSON service, driven by the desktop app
 ```
 
 ## Samples

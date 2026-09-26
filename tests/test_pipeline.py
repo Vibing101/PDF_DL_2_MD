@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import textwrap
+import threading
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ import pytest
 from pdf2md.cli import main
 from pdf2md.download import Downloader
 from pdf2md.pipeline import (
+    STATUS_CANCELLED,
     STATUS_CONVERTED,
     STATUS_DOWNLOAD_FAILED,
     STATUS_EMPTY,
@@ -339,3 +341,40 @@ def test_index_link_targets_keep_non_ascii_readable(server, tmp_path):
 
     index = (tmp_path / "out" / "INDEX.md").read_text(encoding="utf-8")
     assert "(Φυσική/a.md)" in index
+
+
+def test_run_links_converts_an_explicit_selection_and_reports_progress(server, tmp_path):
+    kept = server.add("/keep.pdf", make_pdf(["Kept"]))
+    skipped = server.add("/skip.pdf", make_pdf(["Not asked for"]))
+    document = write_document(
+        tmp_path,
+        f"## Physics\n\n- Keep — [k.pdf]({kept})\n- Skip — [s.pdf]({skipped})\n",
+    )
+    steps = []
+    options = Options(output_dir=tmp_path / "out", workers=1)
+    pipeline = Pipeline(options, downloader=Downloader(retries=0), on_progress=steps.append)
+    _, links = pipeline.collect([document])
+
+    report = pipeline.run_links([link for link in links if link.url == kept])
+
+    assert report.links_selected == 1
+    assert report.files_written == 1
+    assert (tmp_path / "out" / "Physics" / "keep.md").is_file()
+    assert not (tmp_path / "out" / "Physics" / "skip.md").exists()
+    assert [(step.done, step.total, step.status) for step in steps] == [(1, 1, "converted")]
+    assert steps[0].as_dict()["url"] == kept
+
+
+def test_a_set_cancel_event_stops_the_run_before_downloading(server, tmp_path):
+    url = server.add("/a.pdf", make_pdf(["Never fetched"]))
+    document = write_document(tmp_path, f"## Physics\n\n- A — [a.pdf]({url})\n")
+    cancel = threading.Event()
+    cancel.set()
+    options = Options(output_dir=tmp_path / "out", workers=1)
+    pipeline = Pipeline(options, downloader=Downloader(retries=0), cancel_event=cancel)
+
+    report = pipeline.run([document])
+
+    assert [result.status for result in report.results] == [STATUS_CANCELLED]
+    assert report.files_written == 0
+    assert server.hits == []
