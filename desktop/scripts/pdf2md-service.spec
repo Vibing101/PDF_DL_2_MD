@@ -71,7 +71,7 @@ a.binaries, substitutions = align_tls_libraries(a.binaries)
 for name, old_source, new_source in substitutions:
     print(f"spec: using cryptography's {name}\n      was {old_source}\n      now {new_source}")
 if not substitutions:
-    print("spec: no TLS libraries to align (cryptography links OpenSSL statically)")
+    print("spec: TLS libraries already come from one place, nothing to align")
 
 pyz = PYZ(a.pure)  # noqa: F821
 
